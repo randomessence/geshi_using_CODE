@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml-stylesheet type="text/xsl" href="modx.prosilver.en.xsl"?>
+<!--For security purposes, please check: http://www.phpbb.com/mods/ for the latest version of this MOD. Although MODs are checked before being allowed in the MODs Database there is no guarantee that there are no security problems within the MOD. No support will be given for MODs not found within the MODs Database which can be found at http://www.phpbb.com/mods/-->
+<mod xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.phpbb.com/mods/xml/modx-1.2.5.xsd">
+	<header>
+		<license>http://opensource.org/licenses/gpl-license.php GNU General Public License v2</license>
+
+		<title lang="en">GeSHi</title>
+
+		<description lang="en">This MOD adds GeSHi highlighting to phpBB3.</description>
+
+		<author-notes lang="en">n/a</author-notes>
+
+		<author-group>
+			<author>
+				<username>t_backoff</username>
+			</author>
+		</author-group>
+
+		<mod-version>1.0.0</mod-version>
+
+		<installation>
+			<level>easy</level>
+			<time>300</time>
+			<target-version>3.0.11</target-version>
+		</installation>
+
+		<history>
+			<entry>
+				<date>2012-10-27</date>
+				<rev-version>1.0.0</rev-version>
+				<changelog lang="en">
+					<change>initial release</change>
+				</changelog>
+			</entry>
+		</history>
+	</header>
+
+	<action-group>
+		<copy>
+			<file from="root/*.*" to="*.*" />
+		</copy>
+
+		<open src="includes/bbcode.php">
+			<edit>
+				<find><![CDATA[							'#\[code(?:=([a-z]+))?:$uid\](.*?)\[/code:$uid\]#ise'	=> "\$this->bbcode_second_pass_code('\$1', '\$2')",]]></find>
+				<action type="replace-with"><![CDATA[							'#\[code(?:=([a-z0-9_+\\#]+))?:$uid\](.*?)\[/code:$uid\]#ise'	=> "\$this->bbcode_second_pass_code('\$1', '\$2')",]]></action>
+			</edit>
+			<edit>
+				<find><![CDATA[		static $replacements = array(]]></find>
+				<action type="after-add"><![CDATA[			'code_open'				=> array('{LANGUAGE}'	=> '$1'),]]></action>
+			</edit>
+			<edit>
+				<find><![CDATA[			case 'php':]]></find>
+				<action type="before-add"><![CDATA[/*]]></action>
+			</edit>
+			<edit>
+				<find><![CDATA[			// no break;]]></find>
+				<action type="after-add"><![CDATA[*/]]></action>
+			</edit>
+			<edit>
+				<find><![CDATA[		$code = $this->bbcode_tpl('code_open') . $code . $this->bbcode_tpl('code_close');]]></find>
+				<action type="replace-with"><![CDATA[		$code = str_replace('$1', $type, $this->bbcode_tpl('code_open')). str_replace("</li>\n<li", '</li><li', $code) . $this->bbcode_tpl('code_close');]]></action>
+			</edit>
+		</open>
+		<open src="includes/message_parser.php">
+			<edit>
+				<find><![CDATA[if (!class_exists('bbcode'))
+{
+	include($phpbb_root_path . 'includes/bbcode.' . $phpEx);
+}]]></find>
+				<action type="after-add"><![CDATA[include($phpbb_root_path . 'includes/geshi.' . $phpEx);]]></action>
+			</edit>
+			<edit>
+				<find><![CDATA[			'code'			=> array('bbcode_id' => 8,	'regexp' => array('#\[code(?:=([a-z]+))?\](.+\[/code\])#uise' => "\$this->bbcode_code('\$1', '\$2')")),]]></find>
+				<action type="replace-with"><![CDATA[			'code'			=> array('bbcode_id' => 8,	'regexp' => array('#\[code(?:=([a-z0-9_+\\#]+))?\](.+\[/code\])#ise' => "\$this->bbcode_code('\$1', '\$2')")),]]></action>
+			</edit>
+			<edit>
+				<find><![CDATA[			case 'php':]]></find>
+				<action type="before-add"><![CDATA[/*]]></action>
+			</edit>
+			<edit>
+				<find><![CDATA[			break;]]></find>
+				<action type="after-add"><![CDATA[*/]]></action>
+			</edit>
+			<edit>
+				<find><![CDATA[				return '[code:' . $this->bbcode_uid . ']' . $this->bbcode_specialchars($code) . '[/code:' . $this->bbcode_uid . ']';]]></find>
+				<action type="replace-with"><![CDATA[				if ($stx)
+				{
+					$stx = strtolower($stx);
+					switch($stx)
+					{
+						case 'html':
+							$sStxGeshi = 'html4strict';
+						break;
+
+						case 'js':
+							$sStxGeshi = 'javascript';
+						break;
+
+						case 'c++':
+							$sStxGeshi = 'cpp';
+						break;
+
+						default:
+							$sStxGeshi= $stx;
+						break;
+					}
+					$oGeshi = new GeSHi(html_entity_decode($code), $sStxGeshi);
+					if ($oGeshi->error())
+					{
+						$stx = '';
+					}
+				}
+
+				if (!$stx)
+				{
+					return '[code:' . $this->bbcode_uid . ']' . $this->bbcode_specialchars($code) . '[/code:' . $this->bbcode_uid . ']';
+				}
+				$oGeshi->set_header_type(GESHI_HEADER_NONE);
+				$oGeshi->set_line_ending("\n");
+				$oGeshi->enable_keyword_links(false);
+
+				return "[code=$stx:" . $this->bbcode_uid . ']' . str_replace(array('.', ':', "</li>\n</ol>"), array('&#46;', '&#58;', '</li></ol>'), $oGeshi->parse_code()) . '[/code:' . $this->bbcode_uid . ']';]]></action>
+			</edit>
+			<edit>
+				<find><![CDATA[			preg_match('#(.*?)(\[code(?:=([a-z]+))?\])(.+)#is', $in, $buffer);]]></find>
+				<action type="replace-with"><![CDATA[			preg_match('#(.*?)(\[code(?:=([a-z0-9_+\\#]+))?\])(.+)#is', $in, $buffer);]]></action>
+			</edit>
+		</open>
+		<open src="styles/prosilver/template/bbcode.html">
+			<edit>
+				<find><![CDATA[<!-- BEGIN code_open --><dl class="codebox"><dt>{L_CODE}: <a href="#" onclick="selectCode(this); return false;">{L_SELECT_ALL_CODE}</a></dt><dd><code><!-- END code_open -->]]></find>
+				<action type="replace-with"><![CDATA[<!-- BEGIN code_open --><dl class="codebox"><dt>{LANGUAGE} {L_CODE}: <a href="#" onclick="selectCode(this); return false;">{L_SELECT_ALL_CODE}</a></dt><dd><code><!-- END code_open -->]]></action>
+			</edit>
+		</open>
+		<open src="styles/prosilver/theme/tweaks.css">
+			<edit>
+				<find><![CDATA[*:first-child+html #site-description p {
+	margin-bottom: 1.0em;
+}]]></find>
+				<action type="after-add"><![CDATA[dl.codebox code span {
+	font-style: normal !important;
+	font-weight: normal !important;
+}]]></action>
+			</edit>
+		</open>
+	</action-group>
+</mod>
